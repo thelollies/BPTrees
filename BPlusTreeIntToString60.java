@@ -1,3 +1,7 @@
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
 /**
   Implements a B+ tree in which the keys are integers and the
   values are Strings (with maximum length 60 characters)
@@ -5,7 +9,7 @@
 
 public class BPlusTreeIntToString60 {
 
-	private final int maxSize = 3;
+	public final int maxSize;
 	private IntToStringNode rootNode;
 
 	/**
@@ -18,6 +22,15 @@ public class BPlusTreeIntToString60 {
 		return find(key, rootNode);
 	}
 
+	public BPlusTreeIntToString60(){
+		this.maxSize = 14;
+	}
+	
+	public BPlusTreeIntToString60(int maxSize){
+		if(maxSize > 255) throw new BTreeException("Cannot have BTree with node size > 255");
+		this.maxSize = maxSize;
+	}
+	
 	/**
 	 * Stores the value associated with the key in the B+ tree.
 	 * If the key is already present, replaces the associated value.
@@ -149,21 +162,59 @@ public class BPlusTreeIntToString60 {
 		}
 	}
 
-	public String printAll(){
+	public List<String> printAll(){
 		IntToStringNode leaf = rootNode;
 		while(!leaf.isLeaf){
 			leaf = leaf.getChild(0);
 		}
 
-		StringBuilder sb = new StringBuilder();
+		List<String> output = new ArrayList<String>();
 
 		while(leaf != null){
 			for(IntStringPair pair : leaf.getKeyValuePairs())
-				if(pair != null) sb.append(pair + "\n");
+				if(pair != null) output.add(pair.toString());
 			leaf = leaf.getNext();
 		}
 
-		return sb.toString();
+		return output;
+	}
+	
+	/**
+	 * This header block contains the type of nodes (string-int = 0 or int-string = 1),
+	 * the maximum size of the nodes, the index of the root node.
+	 * and the type of nodes being stored.
+	 * @param blockSize
+	 * @return
+	 */
+	public Block getHeader(int blockSize, HashMap<IntToStringNode, Integer> nodes){
+		int blockIndex = 0;
+		Block block = new Block(blockSize);
+		block.setByte(Bytes.intToByte(1), blockIndex++); //Set type to Int-String (one)
+		block.setByte(Bytes.intToByte(maxSize), blockIndex++); // Set max pairs in node
+
+		int rootBlock = rootNode == null ? -Integer.MAX_VALUE : nodes.get(rootNode);
+		block.setBytes(Bytes.intToBytes(rootBlock), blockIndex); // Write root node block location
+
+		return block;
+	}
+
+	public static BPlusTreeIntToString60 fromBytes(Block block, HashMap<Integer, IntToStringNode> nodes){
+		int blockIndex = 0;
+		if(Bytes.byteToInt(block.getByte(blockIndex++)) != 1)
+			throw new BTreeException("Cannot read StringToInt tree into IntToString tree.");
+
+		int maxSize = Bytes.byteToInt(block.getByte(blockIndex++));
+		BPlusTreeIntToString60 tree = new BPlusTreeIntToString60(maxSize);
+
+		int rootBlock = Bytes.bytesToInt(block.getBytes(blockIndex, 4));
+		if(nodes != null) // This will be null when creating from file with only node pointer
+			tree.rootNode = rootBlock == -Integer.MAX_VALUE ? null : nodes.get(rootBlock);
+
+		return tree;
+	}
+	
+	public IntToStringNode getRoot(){
+		return rootNode;
 	}
 
 }

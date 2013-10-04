@@ -25,6 +25,8 @@ public class GUI extends JFrame{
 	private JTextField nameText;
 	private JButton actionButton;
 	private JButton addButton;
+	private JButton loadButton;
+	private JButton saveButton;
 
 	private DNSDB dnsDB;
 
@@ -89,6 +91,99 @@ public class GUI extends JFrame{
 			}
 		});
 
+		loadButton = new JButton("Load");
+		loadButton.setMaximumSize(new Dimension(250, 50));
+		loadButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				JFileChooser chooser = new JFileChooser(".");
+				int res = chooser.showOpenDialog(GUI.this);
+				
+				BPlusTreeIntToString60 hostTree = null;
+				BPlusTreeString60toInt ipTree = null;
+				
+				if(res == JFileChooser.APPROVE_OPTION){
+					try{
+						hostTree = new IntStringTreeIO(new BlockFile(chooser.getSelectedFile().getAbsolutePath(), 1024)).readTree();
+					}
+					catch(Exception ex){
+						ex.printStackTrace();
+						return;
+					}
+				}
+				else{return;}
+				
+				chooser = new JFileChooser(".");
+				res = chooser.showOpenDialog(GUI.this);
+				
+				if(res == JFileChooser.APPROVE_OPTION){
+					try{
+						ipTree = new StringIntTreeIO(new BlockFile(chooser.getSelectedFile().getAbsolutePath(), 1024)).readTree();
+					}
+					catch(Exception ex){
+						ex.printStackTrace();
+						return;
+					}
+				}
+				else{return;}
+				
+				if(hostTree != null && ipTree != null){
+					dnsDB.setHosts(hostTree);
+					dnsDB.setIpAddresses(ipTree);
+				}
+				else{
+					System.out.println("Host: " + (hostTree == null) + "ip: " + (ipTree == null));
+				}
+			}
+		});
+
+		saveButton = new JButton("Save");
+		saveButton.setMaximumSize(new Dimension(250, 50));
+		saveButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				JFileChooser chooser = new JFileChooser(".");
+				int res = chooser.showOpenDialog(GUI.this);
+				
+				IntStringTreeIO hostTree = null;
+				StringIntTreeIO ipTree = null;
+				
+				if(chooser.getSelectedFile().exists())
+					chooser.getSelectedFile().delete();
+				
+				if(res == JFileChooser.APPROVE_OPTION){
+					try{
+						hostTree = new IntStringTreeIO(new BlockFile(chooser.getSelectedFile().getAbsolutePath(), 1024));
+					}
+					catch(Exception ex){
+						ex.printStackTrace();
+						return;
+					}
+				}
+				
+				chooser = new JFileChooser(".");
+				res = chooser.showOpenDialog(GUI.this);
+				
+				if(chooser.getSelectedFile().exists())
+					chooser.getSelectedFile().delete();
+				
+				if(res == JFileChooser.APPROVE_OPTION){
+					try{
+						ipTree = new StringIntTreeIO(new BlockFile(chooser.getSelectedFile().getAbsolutePath(), 1024));
+					}
+					catch(Exception ex){
+						ex.printStackTrace();
+						return;
+					}
+				}
+				
+				if(hostTree != null && ipTree != null){
+					hostTree.writeTree(dnsDB.getHostTree());
+					ipTree.writeTree(dnsDB.getIPTree());
+				}
+			}
+		});
+
 		validateButton();
 
 		JPanel buttonPanel = new JPanel();
@@ -96,6 +191,9 @@ public class GUI extends JFrame{
 		buttonPanel.add(actionButton);
 		buttonPanel.add(Box.createVerticalStrut(5));
 		buttonPanel.add(addButton);
+		buttonPanel.add(loadButton);
+		buttonPanel.add(saveButton);
+		
 		add(buttonPanel, BorderLayout.SOUTH);
 
 
@@ -120,6 +218,7 @@ public class GUI extends JFrame{
 				int res = chooser.showOpenDialog(GUI.this);
 				if(res == JFileChooser.APPROVE_OPTION){
 					dnsDB.testAllPairs(chooser.getSelectedFile());
+					System.out.println("Test has been run.");
 				}
 			}
 		});
@@ -216,12 +315,12 @@ public class GUI extends JFrame{
 
 
 	public static void main(String[] args) {
-		File file = new File("host-list.txt");
+		File file = new File("dummy.txt");
 		if (args.length>0){
 			File f = new File(args[0]);
 			if (f.exists()) file = f;
 		}
-		new GUI().load(file);
+		new GUI()/*.load(file)*/;
 	}
 
 }

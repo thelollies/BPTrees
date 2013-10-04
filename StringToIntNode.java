@@ -253,7 +253,6 @@ public class StringToIntNode{
 		// Write the children if this is not a leaf
 		if(!isLeaf)
 			for(int i = 0; i < numChildren; i++){
-				System.out.println(nodes == null);
 				bytes.setBytes(Bytes.intToBytes(nodes.get(children[i])), blockIndex);
 				blockIndex += 4;
 			}

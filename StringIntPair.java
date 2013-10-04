@@ -34,11 +34,9 @@ public class StringIntPair {
 
 	@Override
 	public String toString() {
-		StringBuilder sb = new StringBuilder("[");
-		sb.append(key);
-		sb.append(" → ");
+		StringBuilder sb = new StringBuilder(key);
+		sb.append("\t");
 		sb.append(DNSDB.IPToString(value));
-		sb.append("]");
 		return sb.toString();
 	}
 }

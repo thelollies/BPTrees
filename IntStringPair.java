@@ -10,7 +10,7 @@ public class IntStringPair {
 
 	@Override
 	public String toString() {
-		return "[" + DNSDB.IPToString(key) + " → " + value + "]";
+		return "[" + DNSDB.IPToString(key) + " -> " + value + "]";
 	}
 	
 	public byte[] getBytes(){
@@ -20,6 +20,7 @@ public class IntStringPair {
 		for(int i = 0; i < 4; i++)
 			bytes[i] = intBytes[i];
 		
+		if(value == null) return bytes;
 		byte[] stringBytes = value.getBytes();
 		for(int i = 4; i < 4 + Math.min(stringBytes.length, 60); i++)
 			bytes[i] = stringBytes[i - 4];

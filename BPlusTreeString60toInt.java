@@ -1,4 +1,6 @@
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 /**
   Implements a B+ tree in which the keys  are Strings (with
@@ -11,11 +13,12 @@ public class BPlusTreeString60toInt {
 	private StringToIntNode rootNode;
 
 	public BPlusTreeString60toInt(int maxSize){
+		if(maxSize > 255) throw new BTreeException("Cannot have BTree with node size > 255");
 		this.maxSize = maxSize;
 	}
 
 	public BPlusTreeString60toInt(){
-		this.maxSize = 3;
+		this.maxSize = 14;
 	}
 
     /**
@@ -161,23 +164,6 @@ public class BPlusTreeString60toInt {
 		}
 	}
 
-	public String printAll(){
-		StringToIntNode leaf = rootNode;
-		while(!leaf.isLeaf){
-			leaf = leaf.getChild(0);
-		}
-
-		StringBuilder sb = new StringBuilder();
-
-		while(leaf != null){
-			for(StringIntPair pair : leaf.getKeyValuePairs())
-				if(pair != null) sb.append(pair + "\n");
-			leaf = leaf.getNext();
-		}
-
-		return sb.toString();
-	}
-
 	/**
 	 * This header block contains the type of nodes (string-int = 0 or int-string = 1),
 	 * the maximum size of the nodes, the index of the root node.
@@ -215,6 +201,23 @@ public class BPlusTreeString60toInt {
 
 	public StringToIntNode getRoot(){
 		return rootNode;
+	}
+	
+	public List<String> printAll(){
+		StringToIntNode leaf = rootNode;
+		while(!leaf.isLeaf){
+			leaf = leaf.getChild(0);
+		}
+
+		List<String> output = new ArrayList<String>();
+
+		while(leaf != null){
+			for(StringIntPair pair : leaf.getKeyValuePairs())
+				if(pair != null) output.add(pair.toString());
+			leaf = leaf.getNext();
+		}
+
+		return output;
 	}
 
 	@Override

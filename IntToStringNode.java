@@ -1,3 +1,5 @@
+import java.util.HashMap;
+
 
 public class IntToStringNode{
 
@@ -211,6 +213,80 @@ public class IntToStringNode{
 		sb.append("}");
 
 		return sb.toString();
+	}
+	
+	/**
+	 * Creates a block representation of this node with the format [header pairs children]
+	 * Leaf Block: [0, isLeaf (1 true), #pairs, next, pairs ...]
+	 * Node Block: [0, isLeaf (0 false), #pairs, pairs, children ...] (numChildren = numPairs + 1)
+	 */
+	public Block toBlock(int blockSize, HashMap<IntToStringNode, Integer> nodes){
+		int blockIndex = 0;
+		Block bytes = new Block(blockSize);
+
+		// Header Begins
+		bytes.setByte(Bytes.intToByte(1), blockIndex++); 								// 1 is StringToIntNode
+		bytes.setByte(Bytes.intToByte(isLeaf ? 1 : 0), blockIndex++); 					// isLeaf
+		bytes.setByte(Bytes.intToByte(numPairs), blockIndex++);							// numPairs
+
+		// Write the next node if this is a leaf
+		if(isLeaf){																	// next
+			int nextLeaf = next == null ? -Integer.MAX_VALUE : nodes.get(next);
+			bytes.setBytes(Bytes.intToBytes(nextLeaf), blockIndex);
+			blockIndex += 4;
+		}
+		// Header Ends
+
+		// Write the pairs
+		for(int i = 0; i < numPairs; i++){
+			bytes.setBytes(pairs[i].getBytes(), blockIndex);
+			blockIndex += 64;
+		}
+
+		// Write the children if this is not a leaf
+		if(!isLeaf)
+			for(int i = 0; i < numChildren; i++){
+				bytes.setBytes(Bytes.intToBytes(nodes.get(children[i])), blockIndex);
+				blockIndex += 4;
+			}
+
+		return bytes;
+	}
+
+	public static IntToStringNode fromBlock(int maxSize, Block block, HashMap<Integer, IntToStringNode> nodes){
+		int blockIndex = 0;
+
+		// Begin header reading
+		if(Bytes.byteToInt(block.getByte(blockIndex++)) != 1)
+			throw new BTreeException("Attempted to read StringToIntNode into IntToStringNode");
+
+		boolean isLeaf = Bytes.byteToInt(block.getByte(blockIndex++)) == 1;
+		IntToStringNode newNode = new IntToStringNode(maxSize, isLeaf);
+
+		newNode.numPairs = Bytes.byteToInt(block.getByte(blockIndex++));
+		newNode.numChildren = newNode.numPairs == 0 ? 0 : newNode.numPairs + 1;
+
+		if(isLeaf){
+			int nodeInt = Bytes.bytesToInt(block.getBytes(blockIndex, 4));
+			newNode.next = nodeInt != -Integer.MAX_VALUE ? nodes.get(nodeInt) : null;
+			blockIndex += 4;
+		}
+		// End header reading
+
+		// Read pairs
+		for(int i = 0; i < newNode.numPairs; i++){
+			newNode.pairs[i] = IntStringPair.fromBytes(block.getBytes(blockIndex, 64));
+			blockIndex += 64;
+		}
+
+		// Read children if this is not a leaf
+		if(!newNode.isLeaf)
+			for(int i = 0; i < newNode.numChildren; i++){
+				newNode.children[i] = nodes.get(Bytes.bytesToInt(block.getBytes(blockIndex, 4)));
+				blockIndex += 4;
+			}
+
+		return newNode;
 	}
 
 	public IntStringPair[] getKeyValuePairs() {

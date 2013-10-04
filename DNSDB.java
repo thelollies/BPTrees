@@ -1,11 +1,10 @@
-import java.io.File;
 import java.io.BufferedReader;
-import java.io.FileReader;
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Scanner;
-import javax.swing.JOptionPane;
-
 
 public class DNSDB {
 
@@ -17,6 +16,14 @@ public class DNSDB {
 		ipAddresses = new BPlusTreeString60toInt();
 	}
 
+	public void setHosts(BPlusTreeIntToString60 hostNames){
+		this.hostNames = hostNames;
+	}
+	
+	public void setIpAddresses(BPlusTreeString60toInt ipAddresses){
+		this.ipAddresses = ipAddresses;
+	}
+	
 	/**
 	 * Loads all the host-IP pairs into the B+ trees.
 	 * @param fileName
@@ -110,7 +117,15 @@ public class DNSDB {
 	 * Prints (to System.out) all the pairs in the HostNames index.
 	 */
 	public void iterateAll(){
-		System.out.println(hostNames.printAll());
+		try{
+			PrintWriter writer = new PrintWriter("iterateall.txt", "UTF-8");
+			for(String s : ipAddresses.printAll())
+				writer.write(s+"\n");
+			
+			writer.close();
+		}catch(Exception e){e.printStackTrace();}
+		
+		//hostNames.printAll();
 	}
 
 
@@ -178,5 +193,13 @@ public class DNSDB {
 				sb.append('.');
 		}
 		return sb.toString();
+	}
+
+	public BPlusTreeIntToString60 getHostTree() {
+		return hostNames;
+	}
+
+	public BPlusTreeString60toInt getIPTree() {
+		return ipAddresses;
 	}
 }

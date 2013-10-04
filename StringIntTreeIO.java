@@ -24,11 +24,10 @@ public class StringIntTreeIO {
 			writeNode(tree.getRoot(), nodeToBlock);
 
 			file.write(tree.getHeader(file.blockSize, nodeToBlock).getBytes(), 0);
+			file.close();
 		}
 		catch(IOException e){e.printStackTrace();}
 		
-		nodeToBlock.values();
-
 	}
 
 	public BPlusTreeString60toInt readTree(){
@@ -42,6 +41,7 @@ public class StringIntTreeIO {
 
 			readNode(maxSize, rootBlock, blockToNode);
 
+			file.close();
 			return BPlusTreeString60toInt.fromBytes(header, blockToNode);
 		}catch(IOException e){e.printStackTrace();}
 		return null;
@@ -67,7 +67,8 @@ public class StringIntTreeIO {
 			int numPairs = numPairs(block);
 			for(int i = numPairs; i >= 0; i--){
 				int offset = 3 + (64 * numPairs) + (i*4);
-				readNode(maxSize, Bytes.byteToInt(block.getByte(offset)), blockToNode);
+				byte[] bytes = block.getBytes(offset,  4);
+				readNode(maxSize, Bytes.bytesToInt(bytes), blockToNode);
 			}
 		}
 		
@@ -81,13 +82,4 @@ public class StringIntTreeIO {
 	private boolean isLeaf(Block block){
 		return Bytes.byteToInt(block.getByte(1)) == 1;
 	}
-
-	public BPlusTreeString60toInt read(){
-		try{
-			System.out.println(BPlusTreeString60toInt.fromBytes(new Block(file.read(0)), null));
-		}catch(IOException e){e.printStackTrace();}
-
-		return null;
-	}
-
 }
