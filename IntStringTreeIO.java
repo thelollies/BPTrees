@@ -11,23 +11,23 @@ public class IntStringTreeIO {
 		this.file = file;
 	}
 
-	public void writeTree(BPlusTreeIntToString60 tree){
+	public int writeTree(BPlusTreeIntToString60 tree, HashMap<Pair, RecordLocation> pairBlocks){
 		this.maxNodeSize = tree.maxSize;
-
-		//file.write(tree.getHeader(file.blockSize, ))
-		HashMap<IntToStringNode, Integer> nodeToBlock = new HashMap<IntToStringNode, Integer>();
+		int headerLocation = 0;
+		
+		HashMap<IntToStringNode, RecordLocation> nodeToBlock = new HashMap<IntToStringNode, RecordLocation>();
 
 		try{
 			// Write an empty block to reserve it for the header
-			file.write(new byte[file.blockSize]);
+			headerLocation = file.write(new byte[file.blockSize]);
 
-			writeNode(tree.getRoot(), nodeToBlock);
+			writeNode(tree.getRoot(), nodeToBlock, pairBlocks, new BlockManager(file));
 
-			file.write(tree.getHeader(file.blockSize, nodeToBlock).getBytes(), 0);
-			file.close();
+			file.write(tree.getHeader(file.blockSize, nodeToBlock).getBytes(), headerLocation);
 		}
 		catch(IOException e){e.printStackTrace();}
 		
+		return headerLocation;
 	}
 
 	public BPlusTreeIntToString60 readTree(){
@@ -47,17 +47,19 @@ public class IntStringTreeIO {
 		return null;
 	}
 
-	private void writeNode(IntToStringNode node, HashMap<IntToStringNode, Integer> nodeToBlock) throws IOException{
+	private void writeNode(IntToStringNode node, 
+			HashMap<IntToStringNode, RecordLocation> nodeToBlock,
+			HashMap<Pair, RecordLocation> pairBlocks,
+			BlockManager block) throws IOException{
 
 		// Write the children first
 		if(!node.isLeaf)
-			for(int i = maxNodeSize; i >= 0; i--){
+			for(int i = maxNodeSize; i >= 0; i--)
 				if(node.getChild(i) != null)
-					writeNode(node.getChild(i), nodeToBlock);
-			}
+					writeNode(node.getChild(i), nodeToBlock, pairBlocks, block);
 
 		// Write this block
-		nodeToBlock.put(node, file.write(node.toBlock(file.blockSize, nodeToBlock).getBytes()));
+		nodeToBlock.put(node, block.write(node.toBlock(file.blockSize, nodeToBlock, pairBlocks).getBytes()));
 	}
 
 	private void readNode(int maxSize, int blockNum, HashMap<Integer, IntToStringNode> blockToNode) throws IOException{
@@ -72,7 +74,7 @@ public class IntStringTreeIO {
 			}
 		}
 		
-		blockToNode.put(blockNum, IntToStringNode.fromBlock(maxSize, block, blockToNode));
+		//blockToNode.put(blockNum, IntToStringNode.fromBlock(maxSize, block, blockToNode));
 	}
 
 	private int numPairs(Block block){

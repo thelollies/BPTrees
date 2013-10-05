@@ -3,7 +3,7 @@ import java.util.HashMap;
 
 public class StringToIntNode{
 
-	private StringIntPair[] pairs;
+	private Pair[] pairs;
 	private StringToIntNode[] children;
 	private final int maxSize;
 	public final boolean isLeaf;
@@ -21,8 +21,9 @@ public class StringToIntNode{
 		this.id = StringToIntNode.idCount++;
 
 		// Initialise arrays
-		pairs = new StringIntPair[size + 1];
-		children = new StringToIntNode[size + 2];
+		pairs = new Pair[size + 1];
+		if(!isLeaf)
+			children = new StringToIntNode[size + 2];
 	}
 
 	public void setNext(StringToIntNode next){
@@ -33,6 +34,9 @@ public class StringToIntNode{
 	}
 
 	public StringToIntNode getNext(){
+		if(next != null && !next.isLeaf)
+			throw new BTreeException("Cannot have non-leaf next");
+		
 		return next;
 	}
 
@@ -56,7 +60,7 @@ public class StringToIntNode{
 	}
 
 	public String getKey(int keyIndex){
-		return pairs[keyIndex].key;
+		return pairs[keyIndex].str;
 	}
 
 	public void insertKey(int position, String key){
@@ -64,26 +68,28 @@ public class StringToIntNode{
 		for(int i = pairs.length - 1; i > position; i--)
 			pairs[i] =  pairs[i - 1];
 
-		pairs[position] = new StringIntPair(key, -Integer.MAX_VALUE);
+		pairs[position] = Pair.create(key, -Integer.MAX_VALUE);
 		numPairs++;
 	}
 
 	public void addKeyValue(String key, int value){
 		if(!isLeaf) throw new BTreeException("Attempted to add key-value pair to non-leaf node");
-		add(new StringIntPair(key, value));
+		add(Pair.create(key, value));
 	}
 
-	private void add(StringIntPair pair){
+	private void add(Pair pair){
 		// Insert key if it fits between existing ones
 		if(pair == null) return;
 
 		int index = size();
 		for(int i = 0; i < size(); i++){
-			if(pairs[i] != null &&	pair.key.compareTo(pairs[i].key) == 0){
+			if(pair.str == null)
+				System.out.println("error");
+			if(pairs[i] != null &&	pair.str.compareTo(pairs[i].str) == 0){
 				pairs[i] = pair;
 				return;
 			}
-			if(pairs[i] == null || pair.key.compareTo(pairs[i].key) < 0){
+			if(pairs[i] == null || pair.str.compareTo(pairs[i].str) < 0){
 				index = i;
 				break;
 			}
@@ -110,7 +116,7 @@ public class StringToIntNode{
 	}
 
 	public void setKey(int position, String key){
-		insert(position, new StringIntPair(key, -Integer.MAX_VALUE), pairs);
+		insert(position, Pair.create(key, -Integer.MAX_VALUE), pairs);
 		numPairs++;
 	}
 
@@ -131,7 +137,7 @@ public class StringToIntNode{
 	/**
 	 * A helper method for inserting into an array of BNode
 	 */
-	private static void insert(int index, StringIntPair pair, StringIntPair[] array){
+	private static void insert(int index, Pair pair, Pair[] array){
 		for(int i = array.length - 1; i > index; i--)
 			array[i] = array[i - 1];
 
@@ -144,7 +150,7 @@ public class StringToIntNode{
 		for(int i = 0; i < size(); i++){
 			/*if(pairs[i] == null)
 				System.out.printf("null pair on index %d at: %s", i, this);*/
-			if(pairs[i].key.equals(key)) return pairs[i].value;
+			if(pairs[i].str.equals(key)) return pairs[i].intgr;
 		}
 
 		return -Integer.MAX_VALUE;
@@ -156,7 +162,7 @@ public class StringToIntNode{
 
 		int mid = (maxSize + 1) / 2;
 
-		String key = pairs[mid].key;
+		String key = pairs[mid].str;
 
 		for(int i = mid; i < pairs.length; i++){
 			sibling.add(pairs[i]);
@@ -174,7 +180,7 @@ public class StringToIntNode{
 
 		int mid = (maxSize + 1) / 2;
 
-		String key = pairs[mid].key;
+		String key = pairs[mid].str;
 
 		for(int i = mid + 1; i < pairs.length; i++){
 			sibling.add(pairs[i]);
@@ -218,7 +224,7 @@ public class StringToIntNode{
 		return sb.toString();
 	}
 
-	public StringIntPair[] getKeyValuePairs() {
+	public Pair[] getKeyValuePairs() {
 		return pairs;
 	}
 
@@ -227,7 +233,8 @@ public class StringToIntNode{
 	 * Leaf Block: [0, isLeaf (1 true), #pairs, next, pairs ...]
 	 * Node Block: [0, isLeaf (0 false), #pairs, pairs, children ...] (numChildren = numPairs + 1)
 	 */
-	public Block toBlock(int blockSize, HashMap<StringToIntNode, Integer> nodes){
+	public Block toBlock(int blockSize, HashMap<StringToIntNode, RecordLocation> nodes, 
+			HashMap<Pair, RecordLocation> pairBlocks){
 		int blockIndex = 0;
 		Block bytes = new Block(blockSize);
 
@@ -238,23 +245,29 @@ public class StringToIntNode{
 
 		// Write the next node if this is a leaf
 		if(isLeaf){																	// next
-			int nextLeaf = next == null ? -Integer.MAX_VALUE : nodes.get(next);
-			bytes.setBytes(Bytes.intToBytes(nextLeaf), blockIndex);
-			blockIndex += 4;
+			RecordLocation nextLeaf = next == null ? new RecordLocation(-Integer.MAX_VALUE, -Integer.MAX_VALUE) : nodes.get(next);
+			bytes.setBytes(nextLeaf.getBytes(), blockIndex);
+			blockIndex += 8;
 		}
 		// Header Ends
 
 		// Write the pairs
 		for(int i = 0; i < numPairs; i++){
-			bytes.setBytes(pairs[i].getBytes(), blockIndex);
-			blockIndex += 64;
+			if(isLeaf){
+				bytes.setBytes(pairBlocks.get(pairs[i]).getBytes(), blockIndex);
+				blockIndex += 8;
+			}
+			else{
+				bytes.setBytes(pairs[i].str.getBytes(), blockIndex);
+				blockIndex += 60;
+			}
 		}
 
 		// Write the children if this is not a leaf
 		if(!isLeaf)
 			for(int i = 0; i < numChildren; i++){
-				bytes.setBytes(Bytes.intToBytes(nodes.get(children[i])), blockIndex);
-				blockIndex += 4;
+				bytes.setBytes(nodes.get(children[i]).getBytes(), blockIndex);
+				blockIndex += 8;
 			}
 
 		return bytes;
@@ -282,7 +295,7 @@ public class StringToIntNode{
 
 		// Read pairs
 		for(int i = 0; i < newNode.numPairs; i++){
-			newNode.pairs[i] = StringIntPair.fromBytes(block.getBytes(blockIndex, 64));
+			newNode.pairs[i] = Pair.fromBytes(block.getBytes(blockIndex, 64));
 			blockIndex += 64;
 		}
 
@@ -296,9 +309,9 @@ public class StringToIntNode{
 		return newNode;
 	}
 
-	@Override
+	/*@Override
 	public int hashCode() {
 		return id;
-	}
+	}*/
 
 }

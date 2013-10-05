@@ -1,9 +1,10 @@
+import java.io.IOException;
 import java.util.HashMap;
 
 
 public class IntToStringNode{
 
-	private IntStringPair[] pairs;
+	private Pair[] pairs;
 	private IntToStringNode[] children;
 	private final int maxSize;
 	public final boolean isLeaf;
@@ -18,7 +19,7 @@ public class IntToStringNode{
 		this.isLeaf = isLeaf;
 
 		// Initialise arrays
-		pairs = new IntStringPair[size + 1];
+		pairs = new Pair[size + 1];
 		children = new IntToStringNode[size + 2];
 	}
 
@@ -53,7 +54,7 @@ public class IntToStringNode{
 	}
 
 	public int getKey(int keyIndex){
-		return pairs[keyIndex].key;
+		return pairs[keyIndex].intgr;
 	}
 
 	public void insertKey(int position, int key){
@@ -61,26 +62,26 @@ public class IntToStringNode{
 		for(int i = pairs.length - 1; i > position; i--)
 			pairs[i] =  pairs[i - 1];
 
-		pairs[position] = new IntStringPair(key, null);
+		pairs[position] = Pair.create(null, key);
 		numPairs++;
 	}
 
 	public void addKeyValue(int key, String value){
 		if(!isLeaf) throw new BTreeException("Attempted to add key-value pair to non-leaf node");
-		add(new IntStringPair(key, value));
+		add(Pair.create(value, key));
 	}
 
-	private void add(IntStringPair pair){
+	private void add(Pair pair){
 		// Insert key if it fits between existing ones
 		if(pair == null) return;
 
 		int index = size();
 		for(int i = 0; i < size(); i++){
-			if(pairs[i] != null && pair.key == pairs[i].key){
+			if(pairs[i] != null && pair.intgr == pairs[i].intgr){
 				pairs[i] = pair;
 				return;
 			}
-			if(pairs[i] == null || pair.key < pairs[i].key){
+			if(pairs[i] == null || pair.intgr < pairs[i].intgr){
 				index = i;
 				break;
 			}
@@ -107,7 +108,7 @@ public class IntToStringNode{
 	}
 
 	public void setKey(int position, int key){
-		insert(position, new IntStringPair(key, null), pairs);
+		insert(position, Pair.create(null, key), pairs);
 		numPairs++;
 	}
 
@@ -128,7 +129,7 @@ public class IntToStringNode{
 	/**
 	 * A helper method for inserting into an array of BNode
 	 */
-	private static void insert(int index, IntStringPair pair, IntStringPair[] array){
+	private static void insert(int index, Pair pair, Pair[] array){
 		for(int i = array.length - 1; i > index; i--)
 			array[i] = array[i - 1];
 
@@ -141,7 +142,7 @@ public class IntToStringNode{
 		for(int i = 0; i < size(); i++){
 			/*if(pairs[i] == null)
 				System.out.printf("null pair on index %d at: %s", i, this);*/
-			if(pairs[i].key == key) return pairs[i].value;
+			if(pairs[i].intgr == key) return pairs[i].str;
 		}
 
 		return null;
@@ -153,7 +154,7 @@ public class IntToStringNode{
 
 		int mid = (maxSize + 1) / 2;
 
-		int key = pairs[mid].key;
+		int key = pairs[mid].intgr;
 
 		for(int i = mid; i < pairs.length; i++){
 			sibling.add(pairs[i]);
@@ -171,7 +172,7 @@ public class IntToStringNode{
 
 		int mid = (maxSize + 1) / 2;
 
-		int key = pairs[mid].key;
+		int key = pairs[mid].intgr;
 
 		for(int i = mid + 1; i < pairs.length; i++){
 			sibling.add(pairs[i]);
@@ -214,13 +215,14 @@ public class IntToStringNode{
 
 		return sb.toString();
 	}
-	
+
 	/**
 	 * Creates a block representation of this node with the format [header pairs children]
 	 * Leaf Block: [0, isLeaf (1 true), #pairs, next, pairs ...]
 	 * Node Block: [0, isLeaf (0 false), #pairs, pairs, children ...] (numChildren = numPairs + 1)
 	 */
-	public Block toBlock(int blockSize, HashMap<IntToStringNode, Integer> nodes){
+	public Block toBlock(int blockSize, HashMap<IntToStringNode, RecordLocation> nodes, 
+			HashMap<Pair, RecordLocation> pairBlocks){
 		int blockIndex = 0;
 		Block bytes = new Block(blockSize);
 
@@ -231,65 +233,80 @@ public class IntToStringNode{
 
 		// Write the next node if this is a leaf
 		if(isLeaf){																	// next
-			int nextLeaf = next == null ? -Integer.MAX_VALUE : nodes.get(next);
-			bytes.setBytes(Bytes.intToBytes(nextLeaf), blockIndex);
-			blockIndex += 4;
+			RecordLocation nextLeaf = next == null ?
+					new RecordLocation(-Integer.MAX_VALUE, -Integer.MAX_VALUE) : nodes.get(next);
+					bytes.setBytes(nextLeaf.getBytes(), blockIndex);
+					blockIndex += 8;
 		}
 		// Header Ends
 
-		// Write the pairs
+		// Write the pair pointers
 		for(int i = 0; i < numPairs; i++){
-			bytes.setBytes(pairs[i].getBytes(), blockIndex);
-			blockIndex += 64;
+			if(isLeaf){
+				bytes.setBytes(pairBlocks.get(pairs[i]).getBytes(), blockIndex);
+				blockIndex += 8;
+			}
+			else{
+				bytes.setBytes(Bytes.intToBytes(pairs[i].intgr), blockIndex);
+				blockIndex += 4;
+			}
 		}
 
 		// Write the children if this is not a leaf
 		if(!isLeaf)
 			for(int i = 0; i < numChildren; i++){
-				bytes.setBytes(Bytes.intToBytes(nodes.get(children[i])), blockIndex);
-				blockIndex += 4;
+				bytes.setBytes(nodes.get(children[i]).getBytes(), blockIndex);
+				blockIndex += 8;
 			}
 
 		return bytes;
 	}
 
-	public static IntToStringNode fromBlock(int maxSize, Block block, HashMap<Integer, IntToStringNode> nodes){
-		int blockIndex = 0;
+	public static IntToStringNode fromBlock(int maxSize, int blockIndex, Block block, 
+			HashMap<RecordLocation, IntToStringNode> nodes, BlockFile file) throws IOException{
 
 		// Begin header reading
 		if(Bytes.byteToInt(block.getByte(blockIndex++)) != 1)
 			throw new BTreeException("Attempted to read StringToIntNode into IntToStringNode");
 
-		boolean isLeaf = Bytes.byteToInt(block.getByte(blockIndex++)) == 1;
-		IntToStringNode newNode = new IntToStringNode(maxSize, isLeaf);
+		boolean isLeaf = Bytes.byteToInt(block.getByte(blockIndex++)) == 1;			// isLeaf
+		IntToStringNode newNode = new IntToStringNode(maxSize, isLeaf);				// Create new empty node
 
-		newNode.numPairs = Bytes.byteToInt(block.getByte(blockIndex++));
-		newNode.numChildren = newNode.numPairs == 0 ? 0 : newNode.numPairs + 1;
+		newNode.numPairs = Bytes.byteToInt(block.getByte(blockIndex++));			// numPairs
+		newNode.numChildren = newNode.numPairs == 0 ? 0 : newNode.numPairs + 1;		// numChildren
 
 		if(isLeaf){
-			int nodeInt = Bytes.bytesToInt(block.getBytes(blockIndex, 4));
-			newNode.next = nodeInt != -Integer.MAX_VALUE ? nodes.get(nodeInt) : null;
-			blockIndex += 4;
+			RecordLocation nextNode = RecordLocation.fromBytes(block.getBytes(blockIndex, 8));
+			newNode.next = nextNode.fileIndex != -Integer.MAX_VALUE ? nodes.get(nextNode) : null;
+			blockIndex += 8;
 		}
 		// End header reading
 
 		// Read pairs
 		for(int i = 0; i < newNode.numPairs; i++){
-			newNode.pairs[i] = IntStringPair.fromBytes(block.getBytes(blockIndex, 64));
-			blockIndex += 64;
+			if(isLeaf){
+				RecordLocation pairLocation = RecordLocation.fromBytes(block.getBytes(blockIndex, 8));
+				blockIndex += 8;
+				newNode.pairs[i] = Pair.fromBytes(new Block(file.read(pairLocation.fileIndex)).getBytes(pairLocation.blockIndex, 64));
+			}
+			else{
+				newNode.pairs[i] = Pair.create(null, block.getInt(blockIndex));
+				blockIndex += 4;
+			}
 		}
 
 		// Read children if this is not a leaf
 		if(!newNode.isLeaf)
 			for(int i = 0; i < newNode.numChildren; i++){
-				newNode.children[i] = nodes.get(Bytes.bytesToInt(block.getBytes(blockIndex, 4)));
-				blockIndex += 4;
+				RecordLocation childLocation = RecordLocation.fromBytes(block.getBytes(blockIndex, 8));
+				newNode.children[i] = nodes.get(childLocation);
+				blockIndex += 8;
 			}
 
 		return newNode;
 	}
 
-	public IntStringPair[] getKeyValuePairs() {
+	public Pair[] getKeyValuePairs() {
 		return pairs;
 	}
 

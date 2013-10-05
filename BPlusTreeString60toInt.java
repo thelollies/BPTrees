@@ -171,20 +171,22 @@ public class BPlusTreeString60toInt {
 	 * @param blockSize
 	 * @return
 	 */
-	public Block getHeader(int blockSize, HashMap<StringToIntNode, Integer> nodes){
+	public Block getHeader(int blockSize, HashMap<StringToIntNode, RecordLocation> nodes){
 		int blockIndex = 0;
 		Block block = new Block(blockSize);
 		block.setByte(Bytes.intToByte(0), blockIndex++); //Set type to String-Int (zero)
 		block.setByte(Bytes.intToByte(maxSize), blockIndex++); // Set max pairs in node
 
-		int rootBlock = rootNode == null ? -Integer.MAX_VALUE : nodes.get(rootNode);
-		block.setBytes(Bytes.intToBytes(rootBlock), blockIndex); // Write root node block location
+		RecordLocation rootBlock = rootNode == null ? 
+				new RecordLocation(-Integer.MAX_VALUE, -Integer.MAX_VALUE) : nodes.get(rootNode);
+				
+		block.setBytes(rootBlock.getBytes(), blockIndex); // Write root node block location
 
 
 		return block;
 	}
 
-	public static BPlusTreeString60toInt fromBytes(Block block, HashMap<Integer, StringToIntNode> nodes){
+	public static BPlusTreeString60toInt fromBytes(Block block, HashMap<RecordLocation, StringToIntNode> nodes){
 		int blockIndex = 0;
 		if(Bytes.byteToInt(block.getByte(blockIndex++)) != 0)
 			throw new BTreeException("Cannot read IntToString tree into StringToInt tree.");
@@ -192,9 +194,9 @@ public class BPlusTreeString60toInt {
 		int maxSize = Bytes.byteToInt(block.getByte(blockIndex++));
 		BPlusTreeString60toInt tree = new BPlusTreeString60toInt(maxSize);
 
-		int rootBlock = Bytes.bytesToInt(block.getBytes(blockIndex, 4));
+		RecordLocation rootBlock = RecordLocation.fromBytes(block.getBytes(blockIndex, 8));
 		if(nodes != null) // This will be null when creating
-			tree.rootNode = rootBlock == -Integer.MAX_VALUE ? null : nodes.get(rootBlock);
+			tree.rootNode = rootBlock.fileIndex == -Integer.MAX_VALUE ? null : nodes.get(rootBlock);
 
 		return tree;
 	}
@@ -212,7 +214,7 @@ public class BPlusTreeString60toInt {
 		List<String> output = new ArrayList<String>();
 
 		while(leaf != null){
-			for(StringIntPair pair : leaf.getKeyValuePairs())
+			for(Pair pair : leaf.getKeyValuePairs())
 				if(pair != null) output.add(pair.toString());
 			leaf = leaf.getNext();
 		}

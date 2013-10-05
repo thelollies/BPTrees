@@ -99,12 +99,11 @@ public class GUI extends JFrame{
 				JFileChooser chooser = new JFileChooser(".");
 				int res = chooser.showOpenDialog(GUI.this);
 				
-				BPlusTreeIntToString60 hostTree = null;
-				BPlusTreeString60toInt ipTree = null;
+				TreeIO tree = null;
 				
 				if(res == JFileChooser.APPROVE_OPTION){
 					try{
-						hostTree = new IntStringTreeIO(new BlockFile(chooser.getSelectedFile().getAbsolutePath(), 1024)).readTree();
+						tree = new TreeIO(new BlockFile(chooser.getSelectedFile().getAbsolutePath(), 1024));
 					}
 					catch(Exception ex){
 						ex.printStackTrace();
@@ -113,26 +112,9 @@ public class GUI extends JFrame{
 				}
 				else{return;}
 				
-				chooser = new JFileChooser(".");
-				res = chooser.showOpenDialog(GUI.this);
-				
-				if(res == JFileChooser.APPROVE_OPTION){
-					try{
-						ipTree = new StringIntTreeIO(new BlockFile(chooser.getSelectedFile().getAbsolutePath(), 1024)).readTree();
-					}
-					catch(Exception ex){
-						ex.printStackTrace();
-						return;
-					}
-				}
-				else{return;}
-				
-				if(hostTree != null && ipTree != null){
-					dnsDB.setHosts(hostTree);
-					dnsDB.setIpAddresses(ipTree);
-				}
-				else{
-					System.out.println("Host: " + (hostTree == null) + "ip: " + (ipTree == null));
+				if(tree != null){
+					tree.readIntoTree(dnsDB.getHostTree(), dnsDB.getIPTree());
+					System.out.println("Tree loaded");
 				}
 			}
 		});
@@ -145,41 +127,27 @@ public class GUI extends JFrame{
 				JFileChooser chooser = new JFileChooser(".");
 				int res = chooser.showOpenDialog(GUI.this);
 				
-				IntStringTreeIO hostTree = null;
-				StringIntTreeIO ipTree = null;
+				TreeIO tree = null;
 				
 				if(chooser.getSelectedFile().exists())
 					chooser.getSelectedFile().delete();
 				
 				if(res == JFileChooser.APPROVE_OPTION){
 					try{
-						hostTree = new IntStringTreeIO(new BlockFile(chooser.getSelectedFile().getAbsolutePath(), 1024));
+						tree = new TreeIO(new BlockFile(chooser.getSelectedFile().getAbsolutePath(), 1024));
 					}
 					catch(Exception ex){
 						ex.printStackTrace();
 						return;
 					}
 				}
-				
-				chooser = new JFileChooser(".");
-				res = chooser.showOpenDialog(GUI.this);
-				
-				if(chooser.getSelectedFile().exists())
-					chooser.getSelectedFile().delete();
-				
-				if(res == JFileChooser.APPROVE_OPTION){
-					try{
-						ipTree = new StringIntTreeIO(new BlockFile(chooser.getSelectedFile().getAbsolutePath(), 1024));
-					}
-					catch(Exception ex){
-						ex.printStackTrace();
-						return;
-					}
+				else{
+					return;
 				}
-				
-				if(hostTree != null && ipTree != null){
-					hostTree.writeTree(dnsDB.getHostTree());
-					ipTree.writeTree(dnsDB.getIPTree());
+
+				if(tree != null){
+					tree.writeTree(dnsDB.getHostTree(), dnsDB.getIPTree());
+					System.out.println("Tree saved");
 				}
 			}
 		});
@@ -312,15 +280,13 @@ public class GUI extends JFrame{
 		dnsDB.load(f);
 	}
 
-
-
 	public static void main(String[] args) {
 		File file = new File("dummy.txt");
 		if (args.length>0){
 			File f = new File(args[0]);
 			if (f.exists()) file = f;
 		}
-		new GUI()/*.load(file)*/;
+		new GUI().load(file);
 	}
 
 }

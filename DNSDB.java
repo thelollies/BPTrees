@@ -122,6 +122,8 @@ public class DNSDB {
 			for(String s : ipAddresses.printAll())
 				writer.write(s+"\n");
 			
+			System.out.println(hostNames.printAll().size());
+			
 			writer.close();
 		}catch(Exception e){e.printStackTrace();}
 		

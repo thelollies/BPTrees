@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -7,7 +8,7 @@ import java.util.List;
   values are Strings (with maximum length 60 characters)
  */
 
-public class BPlusTreeIntToString60 {
+public class BPlusTreeIntToString60 implements Iterable<IntToStringNode>{
 
 	public final int maxSize;
 	private IntToStringNode rootNode;
@@ -40,7 +41,6 @@ public class BPlusTreeIntToString60 {
 	 * @return whether pair was successfully added.
 	 */
 	public boolean put(int key, String value){
-
 		if(rootNode == null){
 			// Create new leaf, add key value
 			IntToStringNode leaf = new IntToStringNode(maxSize, true);
@@ -171,7 +171,7 @@ public class BPlusTreeIntToString60 {
 		List<String> output = new ArrayList<String>();
 
 		while(leaf != null){
-			for(IntStringPair pair : leaf.getKeyValuePairs())
+			for(Pair pair : leaf.getKeyValuePairs())
 				if(pair != null) output.add(pair.toString());
 			leaf = leaf.getNext();
 		}
@@ -186,14 +186,15 @@ public class BPlusTreeIntToString60 {
 	 * @param blockSize
 	 * @return
 	 */
-	public Block getHeader(int blockSize, HashMap<IntToStringNode, Integer> nodes){
+	public Block getHeader(int blockSize, HashMap<IntToStringNode, RecordLocation> nodes){
 		int blockIndex = 0;
 		Block block = new Block(blockSize);
 		block.setByte(Bytes.intToByte(1), blockIndex++); //Set type to Int-String (one)
 		block.setByte(Bytes.intToByte(maxSize), blockIndex++); // Set max pairs in node
 
-		int rootBlock = rootNode == null ? -Integer.MAX_VALUE : nodes.get(rootNode);
-		block.setBytes(Bytes.intToBytes(rootBlock), blockIndex); // Write root node block location
+		RecordLocation rootBlock = rootNode == null ? 
+				new RecordLocation(-Integer.MAX_VALUE, -Integer.MAX_VALUE): nodes.get(rootNode);
+		block.setBytes(rootBlock.getBytes(), blockIndex); // Write root node block location
 
 		return block;
 	}
@@ -217,4 +218,42 @@ public class BPlusTreeIntToString60 {
 		return rootNode;
 	}
 
+	@Override
+	public Iterator<IntToStringNode> iterator() {
+		Iterator<IntToStringNode> iterator = new IntStringTreeIterator();		
+		return iterator;
+	}
+
+	private class IntStringTreeIterator implements Iterator<IntToStringNode>{
+
+		private IntToStringNode next = null;
+		
+		public IntStringTreeIterator(){
+			if(rootNode == null) return;
+			next = rootNode;
+			while(!next.isLeaf)
+				next = next.getChild(0);
+			
+		}
+		
+		@Override
+		public boolean hasNext() {
+			return next!= null;
+		}
+
+		@Override
+		public IntToStringNode next() {
+			if(next == null) return null;
+			IntToStringNode temp = next;
+			next = next.getNext();
+			return temp;
+		}
+
+		@Override
+		public void remove() {
+			throw new UnsupportedOperationException("Cannot delete from BTree");
+		}
+		
+	}
+	
 }

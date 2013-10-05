@@ -67,9 +67,9 @@ public class TestClass {
 		blockToNode.put(3, tree.getRoot().getChild(1));
 		blockToNode.put(4, tree.getRoot().getChild(2));
 
-		IntToStringNode rootCopy = IntToStringNode.fromBlock(3, tree.getRoot().toBlock(1024, nodeToBlock), blockToNode);
+		//IntToStringNode rootCopy = IntToStringNode.fromBlock(3, tree.getRoot().toBlock(1024, nodeToBlock), blockToNode);
 
-		System.out.println(rootCopy);
+		//System.out.println(rootCopy);
 
 
 		/*try{
@@ -101,7 +101,7 @@ public class TestClass {
 	
 	public void matchText(){
 		try {
-			BufferedReader hosts = new BufferedReader(new FileReader(new File("host-list.txt")));
+			BufferedReader hosts = new BufferedReader(new FileReader(new File("dummy.txt")));
 			BufferedReader iterated = new BufferedReader(new FileReader(new File("iterateall.txt")));
 			
 			int index = 1;
@@ -146,10 +146,32 @@ public class TestClass {
 		
 	}
 
+	public void testBits(){
+		int first = Integer.MAX_VALUE;
+		int second = 47382727;
+
+		
+		System.out.println(hashThem(first, second));
+
+		
+	}
+	
+	private double hashThem(int first, int second){
+		double k1 = first;
+		double k2 = second;
+		double result = 1.0 / (2.0*(k1 + k2)*(k1 + k2 + 1.0) + k2);
+		return result;
+	}
+	
+	public static int add(Integer num){
+		return ++num;
+	}
+	
 	public static void main(String[] args){
-		new TestClass().flipHosts();
+		//new TestClass().matchText();
+		Integer five = 5;
 		
-		
+		System.out.println(TestClass.add(five));
 
 	}
 }
